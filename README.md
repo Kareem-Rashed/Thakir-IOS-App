@@ -47,8 +47,8 @@ Screenshots (actual files)
 - First: sebhas list
 - Second: home page
 
-![Sebhas — List & Record](./Screenshots/Simulator Screenshot - iPhone 17 Pro Max - 2025-11-25 at 20.47.07.png)
-![Home — Big Counter](./Screenshots/Simulator Screenshot - iPhone 17 Pro Max - 2025-11-25 at 20.47.30.png)
+![Sebhas — List & Record](./Screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20Pro%20Max%20-%202025-11-25%20at%2020.47.07.png)
+![Home — Big Counter](./Screenshots/Simulator%20Screenshot%20-%20iPhone%2017%20Pro%20Max%20-%202025-11-25%20at%2020.47.30.png)
 
 Contributing
 
