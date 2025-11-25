@@ -42,14 +42,15 @@ Running tests
 - Unit tests: `xcodebuild test -scheme SebhaNew -destination 'platform=iOS Simulator,name=iPhone 15'`
 - UI tests use the same command with the UI test target
   Screenshots
+  Screenshots
 
 - **Sebhas list**
 
-  ![Sebhas — List & Record](SebhaNew/Screenshots/SSONE.png)
+  <img src="SebhaNew/Screenshots/SSONE.png" width="300"/>
 
 - **Home counter**
 
-  ![Home — Big Counter](SebhaNew/Screenshots/SSTWO.png)
+  <img src="SebhaNew/Screenshots/SSTWO.png" width="300"/>
 
 Contributing
 
