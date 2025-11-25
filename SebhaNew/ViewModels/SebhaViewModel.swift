@@ -9,37 +9,11 @@ protocol SebhaViewModelDelegate: AnyObject {
 }
 extension String {
     func removingInvisibleCharacters() -> String {
-        // Remove common invisible Unicode characters
-        var cleaned = self
-        
-        // Object Replacement Character (￼) - This is the main culprit
-        cleaned = cleaned.replacingOccurrences(of: "\u{FFFC}", with: "")
-        
-        // Zero Width characters
-        cleaned = cleaned.replacingOccurrences(of: "\u{200B}", with: "") // Zero Width Space
-        cleaned = cleaned.replacingOccurrences(of: "\u{200C}", with: "") // Zero Width Non-Joiner
-        cleaned = cleaned.replacingOccurrences(of: "\u{200D}", with: "") // Zero Width Joiner
-        cleaned = cleaned.replacingOccurrences(of: "\u{FEFF}", with: "") // Zero Width No-Break Space (BOM)
-        
-        // Right-to-Left and Left-to-Right marks
-        cleaned = cleaned.replacingOccurrences(of: "\u{200E}", with: "") // Left-to-Right Mark
-        cleaned = cleaned.replacingOccurrences(of: "\u{200F}", with: "") // Right-to-Left Mark
-        
-        // Other control characters that might cause issues
-        cleaned = cleaned.replacingOccurrences(of: "\u{202A}", with: "") // Left-to-Right Embedding
-        cleaned = cleaned.replacingOccurrences(of: "\u{202B}", with: "") // Right-to-Left Embedding
-        cleaned = cleaned.replacingOccurrences(of: "\u{202C}", with: "") // Pop Directional Formatting
-        cleaned = cleaned.replacingOccurrences(of: "\u{202D}", with: "") // Left-to-Right Override
-        cleaned = cleaned.replacingOccurrences(of: "\u{202E}", with: "") // Right-to-Left Override
-        
-        return cleaned.filter { $0.isLetter || $0.isNumber || $0.isWhitespace }
+        return self.filter { $0.isLetter || $0.isNumber || $0.isWhitespace }
     }
     
     func normalizedArabic() -> String {
         var normalized = self
-        
-        // First, remove invisible characters
-        normalized = normalized.removingInvisibleCharacters()
         
         // Normalize different forms of Alif
         normalized = normalized.replacingOccurrences(of: "أ", with: "ا")  // Alif with hamza above
@@ -60,7 +34,7 @@ extension String {
             normalized = normalized.replacingOccurrences(of: diacritic, with: "")
         }
         
-        // Remove extra whitespaces and normalize spacing
+        // Remove extra whitespaces and invisible characters
         normalized = normalized.trimmingCharacters(in: .whitespacesAndNewlines)
         normalized = normalized.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
         
