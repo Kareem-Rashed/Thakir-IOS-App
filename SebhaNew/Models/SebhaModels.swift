@@ -1,5 +1,44 @@
 import Foundation
 
+// History entry for tracking sebha usage over time
+struct HistoryEntry: Codable {
+    let date: Date
+    let count: Int
+}
+
+// Per-sebha statistics
+struct SebhaStatistics: Codable {
+    var todayCount: Int = 0
+    var weekCount: Int = 0
+    var monthCount: Int = 0
+    var allTimeCount: Int = 0
+    var lastUpdated: Date = Date()
+    var history: [HistoryEntry] = []
+    
+    mutating func increment(by count: Int = 1) {
+        todayCount += count
+        weekCount += count
+        monthCount += count
+        allTimeCount += count
+        lastUpdated = Date()
+        history.append(HistoryEntry(date: Date(), count: count))
+    }
+    
+    mutating func resetDaily() {
+        todayCount = 0
+        lastUpdated = Date()
+    }
+    
+    mutating func resetAll() {
+        todayCount = 0
+        weekCount = 0
+        monthCount = 0
+        allTimeCount = 0
+        history.removeAll()
+        lastUpdated = Date()
+    }
+}
+
 struct Sebha: Identifiable, Codable, Hashable {
     let id = UUID()
     var text: String

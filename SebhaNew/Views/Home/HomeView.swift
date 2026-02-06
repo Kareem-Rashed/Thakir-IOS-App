@@ -1,247 +1,262 @@
+// filepath: /Users/kareem/Apps/SebhaNew/SebhaNew/Views/Home/HomeViewImproved.swift
 import SwiftUI
 
 struct HomeView: View {
     @ObservedObject var viewModel: SebhaViewModel
     @Environment(\.colorScheme) var colorScheme
     @State private var buttonScale: CGFloat = 1.0
-    @State private var showSebhaDropdown = false
-    
-    var progress: Double {
-        guard viewModel.currentTarget > 0 else { return 0 }
-        return min(Double(viewModel.counter) / Double(viewModel.currentTarget), 1.0)
-    }
+    @State private var showSebhaSheet = false
     
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Simple background
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.1, green: 0.15, blue: 0.25),
-                        Color(red: 0.2, green: 0.3, blue: 0.4)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-                
-                VStack(spacing: 60) {
-                    // App Logo from Assets
-                    AppLogo()
-                    
-                    
-                    // Main Counter Circle with dropdown arrow
-                    HStack(spacing: 20) {
-                        // Big pressable circle
-                        MainCounterCircle(
-                            viewModel: viewModel,
-                            progress: progress,
-                            buttonScale: $buttonScale,
-                            geometry: geometry
-                        )
-                        
-                        // Small dropdown arrow
-                        DropdownButton(
-                            viewModel: viewModel,
-                            showDropdown: $showSebhaDropdown
-                        )
-                    }
+        ZStack {
+            // Gradient background
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    colorScheme == .dark 
+                        ? Color(red: 0.05, green: 0.05, blue: 0.1)
+                        : Color(red: 0.95, green: 0.96, blue: 0.98),
+                    colorScheme == .dark
+                        ? Color(red: 0.1, green: 0.1, blue: 0.15)
+                        : Color.white
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Compact Header with Logo
+                HStack {
+                    Image(colorScheme == .dark ? "darkLogo" : "lightLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 80)
                     
                     Spacer()
                     
-                    // Voice toggle button
+                    // Voice toggle
                     SimpleVoiceToggle(viewModel: viewModel)
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 40)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        // Sebha Selector Card
+                        VStack(spacing: 16) {
+                            Button(action: { showSebhaSheet = true }) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Current Sebha")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(.secondary)
+                                        
+                                        Text(viewModel.selectedSebha)
+                                            .font(.system(size: 22, weight: .bold))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(2)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.down.circle.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.blue)
+                                }
+                                .padding(16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white)
+                                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        
+                        // Main Counter Circle
+                        MainCounterCircle(viewModel: viewModel, buttonScale: $buttonScale)
+                            .padding(.horizontal, 20)
+                        
+                        // Stats Row
+                        HStack(spacing: 12) {
+                            StatCard(
+                                title: "Target",
+                                value: "\(viewModel.currentTarget)",
+                                icon: "target",
+                                color: .blue
+                            )
+                            
+                            StatCard(
+                                title: "Progress",
+                                value: "\(Int(viewModel.currentSebhaProgress * 100))%",
+                                icon: "chart.line.uptrend.xyaxis",
+                                color: .green
+                            )
+                            
+                            StatCard(
+                                title: "Today",
+                                value: "\(viewModel.todayTotal)",
+                                icon: "calendar",
+                                color: .orange
+                            )
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        Spacer(minLength: 100)
+                    }
+                    .padding(.top, 8)
+                }
             }
         }
-        .sheet(isPresented: $showSebhaDropdown) {
-            SebhaSelectionSheet(viewModel: viewModel, isPresented: $showSebhaDropdown)
+        .sheet(isPresented: $showSebhaSheet) {
+            SebhaSelectionSheet(viewModel: viewModel, isPresented: $showSebhaSheet)
         }
     }
 }
 
-struct AppLogo: View {
+struct StatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
-        VStack(spacing: 0) {
-            // Try to load from assets, fallback to text
-            if let logo = UIImage(named: "lightLogo") {
-                Image(uiImage: logo)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 180)
-            } else {
-                // Fallback logo
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                gradient: Gradient(colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.1)
-                                ]),
-                                center: .center,
-                                startRadius: 10,
-                                endRadius: 40
-                            )
-                        )
-                        .frame(width: 80, height: 80)
-                    
-                    Text("سبحة")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                }
-            }
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(color)
+            
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.primary)
+            
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white)
+                .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
+        )
     }
 }
 
 struct MainCounterCircle: View {
     @ObservedObject var viewModel: SebhaViewModel
-    let progress: Double
     @Binding var buttonScale: CGFloat
-    let geometry: GeometryProxy
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                buttonScale = 0.95
-                viewModel.incrementCount(for: viewModel.selectedSebha)
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    buttonScale = 1.0
-                }
-            }
-        }) {
+        VStack(spacing: 16) {
             ZStack {
-                // Progress ring background
-                Circle()
-                    .stroke(.white.opacity(0.2), lineWidth: 8)
-                    .frame(width: min(geometry.size.width * 0.6, 250))
-                
                 // Progress ring
                 Circle()
-                    .trim(from: 0, to: progress)
+                    .stroke(
+                        colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.2),
+                        lineWidth: 12
+                    )
+                    .frame(width: 240, height: 240)
+                
+                Circle()
+                    .trim(from: 0, to: viewModel.currentSebhaProgress)
                     .stroke(
                         LinearGradient(
-                            gradient: Gradient(colors: [.green, .blue, .purple]),
+                            gradient: Gradient(colors: [Color.blue, Color.purple]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
                     )
-                    .frame(width: min(geometry.size.width * 0.6, 250))
+                    .frame(width: 240, height: 240)
                     .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.8), value: progress)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: viewModel.currentSebhaProgress)
                 
-                // Counter content
-                VStack(spacing: 12) {
-                    Text("\(viewModel.counter)")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .contentTransition(.numericText())
-                    
-                    Text(viewModel.selectedSebha)
-                        .font(.title3)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.8))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                    
-                    Text("\(viewModel.counter)/\(viewModel.currentTarget)")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                // Counter button
+                Button(action: {
+                    viewModel.incrementCount(for: viewModel.selectedSebha)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        buttonScale = 0.95
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            buttonScale = 1.0
+                        }
+                    }
+                }) {
+                    VStack(spacing: 8) {
+                        Text("\(viewModel.counter)")
+                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                        
+                        Text("Tap to count")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(width: 200, height: 200)
+                    .background(
+                        Circle()
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.white)
+                            .shadow(color: Color.black.opacity(0.1), radius: 12, x: 0, y: 4)
+                    )
                 }
-                .frame(width: min(geometry.size.width * 0.5, 200), height: min(geometry.size.width * 0.5, 200))
+                .buttonStyle(PlainButtonStyle())
+                .scaleEffect(buttonScale)
+            }
+            
+            // Reset button
+            Button(action: {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    viewModel.allSebhasCounter[viewModel.currentIndex] = 0
+                    viewModel.counter = 0
+                    viewModel.updateProgress()
+                    viewModel.saveSebhas()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Reset")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.red)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
                 .background(
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                gradient: Gradient(colors: [
-                                    Color.white.opacity(0.1),
-                                    Color.white.opacity(0.05)
-                                ]),
-                                center: .center,
-                                startRadius: 10,
-                                endRadius: 100
-                            )
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(.white.opacity(0.3), lineWidth: 1)
-                        )
+                    Capsule()
+                        .fill(Color.red.opacity(0.1))
                 )
-                .shadow(color: .black.opacity(0.3), radius: 15, x: 0, y: 8)
             }
         }
-        .scaleEffect(buttonScale)
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-struct DropdownButton: View {
-    @ObservedObject var viewModel: SebhaViewModel
-    @Binding var showDropdown: Bool
-    
-    var body: some View {
-        Button(action: {
-            showDropdown.toggle()
-        }) {
-            Image(systemName: "chevron.down.circle.fill")
-                .font(.title2)
-                .foregroundColor(.white.opacity(0.8))
-                .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 44, height: 44)
-                )
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }
 
 struct SimpleVoiceToggle: View {
     @ObservedObject var viewModel: SebhaViewModel
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 viewModel.isVoice.toggle()
             }
         }) {
-            HStack(spacing: 12) {
+            HStack(spacing: 6) {
                 Image(systemName: viewModel.isVoice ? "mic.fill" : "mic.slash.fill")
-                    .font(.title3)
-                    .foregroundColor(viewModel.isVoice ? .green : .white.opacity(0.6))
-                
-                Text(viewModel.isVoice ? "Voice On" : "Voice Off")
-                    .font(.headline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                // Simple toggle
-                RoundedRectangle(cornerRadius: 15)
-                    .fill(viewModel.isVoice ? .green : .gray.opacity(0.3))
-                    .frame(width: 50, height: 30)
-                    .overlay(
-                        Circle()
-                            .fill(.white)
-                            .frame(width: 24, height: 24)
-                            .offset(x: viewModel.isVoice ? 10 : -10)
-                            .animation(.spring(response: 0.3), value: viewModel.isVoice)
-                    )
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(viewModel.isVoice ? .white : .secondary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
+                Capsule()
+                    .fill(viewModel.isVoice ? Color.blue : (colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.1)))
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -251,67 +266,55 @@ struct SimpleVoiceToggle: View {
 struct SebhaSelectionSheet: View {
     @ObservedObject var viewModel: SebhaViewModel
     @Binding var isPresented: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         NavigationView {
-            ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.1, green: 0.15, blue: 0.25),
-                        Color(red: 0.2, green: 0.3, blue: 0.4)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-                
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(viewModel.allSebhas.indices, id: \.self) { index in
-                            Button(action: {
-                                viewModel.selectSebha(at: index)
-                                isPresented = false
-                            }) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(viewModel.allSebhas[index])
-                                            .font(.title3)
-                                            .fontWeight(.medium)
-                                            .foregroundColor(.white)
-                                        
-                                        Text("Target: \(viewModel.allSebhasTarget[index]) | Count: \(viewModel.allSebhasCounter[index])")
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.7))
-                                    }
+            ScrollView {
+                VStack(spacing: 12) {
+                    ForEach(viewModel.allSebhas.indices, id: \.self) { index in
+                        Button(action: {
+                            viewModel.selectSebha(at: index)
+                            isPresented = false
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(viewModel.allSebhas[index])
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundColor(.primary)
                                     
-                                    Spacer()
-                                    
-                                    if viewModel.selectedSebha == viewModel.allSebhas[index] {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.title3)
-                                            .foregroundColor(.green)
-                                    }
+                                    Text("\(viewModel.allSebhasCounter[index]) / \(viewModel.allSebhasTarget[index])")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
                                 }
-                                .padding()
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(.ultraThinMaterial)
-                                )
+                                
+                                Spacer()
+                                
+                                if viewModel.currentIndex == index {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(.blue)
+                                }
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white)
+                            )
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .padding()
                 }
+                .padding(20)
             }
-            .navigationTitle("Choose Sebha")
+            .background(colorScheme == .dark ? Color.black : Color(red: 0.95, green: 0.96, blue: 0.98))
+            .navigationTitle("Select Sebha")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         isPresented = false
                     }
-                    .foregroundColor(.white)
                 }
             }
         }
@@ -321,6 +324,5 @@ struct SebhaSelectionSheet: View {
 struct HomeView_Previews: PreviewProvider {
     static var previews: some View {
         HomeView(viewModel: SebhaViewModel())
-            .preferredColorScheme(.dark)
     }
 }

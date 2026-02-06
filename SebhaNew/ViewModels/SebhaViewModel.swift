@@ -40,8 +40,44 @@ extension String {
         
         return normalized
     }
+    
+    // Advanced phonetic similarity for quick Arabic speech
+    func phoneticSimilarity(to other: String) -> Double {
+        let s1 = self.normalizedArabic().lowercased()
+        let s2 = other.normalizedArabic().lowercased()
+        
+        if s1 == s2 { return 1.0 }
+        
+        // Levenshtein distance for fuzzy matching
+        let len1 = s1.count
+        let len2 = s2.count
+        
+        guard len1 > 0 && len2 > 0 else { return 0.0 }
+        
+        var matrix = [[Int]](repeating: [Int](repeating: 0, count: len2 + 1), count: len1 + 1)
+        
+        for i in 0...len1 { matrix[i][0] = i }
+        for j in 0...len2 { matrix[0][j] = j }
+        
+        let arr1 = Array(s1)
+        let arr2 = Array(s2)
+        
+        for i in 1...len1 {
+            for j in 1...len2 {
+                let cost = arr1[i-1] == arr2[j-1] ? 0 : 1
+                let deletion = matrix[i-1][j] + 1
+                let insertion = matrix[i][j-1] + 1
+                let substitution = matrix[i-1][j-1] + cost
+                matrix[i][j] = Swift.min(deletion, Swift.min(insertion, substitution))
+            }
+        }
+        
+        let distance = matrix[len1][len2]
+        let maxLen = Swift.max(len1, len2)
+        return 1.0 - (Double(distance) / Double(maxLen))
+    }
 }
-class SebhaViewModel: ObservableObject {
+class SebhaViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     weak var delegate: SebhaViewModelDelegate?
     
     @Published var selectedSebha = ""
@@ -61,9 +97,27 @@ class SebhaViewModel: ObservableObject {
         
         print("Switched to next sebha: \(selectedSebha) with current count: \(counter)")
         
-        // Play voice prompt for the new sebha instead of showing alert
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.playVoicePrompt(for: self.selectedSebha)
+        // CRITICAL: Completely stop voice recognition and wait for full shutdown
+        let wasRecognizing = isVoice
+        if wasRecognizing {
+            stopSpeechRecognition()
+        }
+        
+        // Reset voice recognition state for new sebha
+        lastRecognizedText = ""
+        processingBuffer.removeAll()
+        
+        // Wait longer to ensure audio engine is fully stopped before playing audio
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            // Double-check that audio engine is stopped
+            if self.audioEngine.isRunning {
+                print("⚠️ Audio engine still running, forcing stop...")
+                self.audioEngine.stop()
+                self.audioEngine.inputNode.removeTap(onBus: 0)
+            }
+            
+            // Now safe to play audio - pass wasRecognizing flag
+            self.announceNewSebha(shouldRestartRecognition: wasRecognizing)
         }
     }
     @Published var currentIndex = 0
@@ -71,6 +125,15 @@ class SebhaViewModel: ObservableObject {
     @Published var allSebhasCounter: [Int] = []
     @Published var favoriteSebhas: [String] = []
     @Published var countHistory: [(date: Date, count: Int)] = []
+    
+    // Per-sebha statistics tracking
+    @Published var perSebhaStats: [String: SebhaStatistics] = [:]
+    
+    // Enhanced statistics tracking
+    @Published var todayTotal: Int = 0
+    @Published var weekTotal: Int = 0
+    @Published var monthTotal: Int = 0
+    @Published var allTimeTotal: Int = 0
     
     @Published var showEditTargetAlert = false
     @Published var editTargetSebhaIndex: Int? = nil
@@ -88,6 +151,32 @@ class SebhaViewModel: ObservableObject {
             }
         }
     }
+    
+    // Enhanced voice recognition tracking - Tarteel-style system
+    private var lastRecognizedText = ""
+    private var processingBuffer: [String] = []
+    private var lastProcessTime = Date()
+    private let minProcessInterval: TimeInterval = 0.1 // Process every 100ms for quick detection
+    private var isPlayingAudio = false // Flag to prevent recognition restart during playback
+    private var shouldRestartRecognitionAfterPlayback = false // Track if recognition should restart after audio
+    
+    // Tarteel-style recognition state machine
+    private enum RecognitionState {
+        case idle           // Not listening or just started
+        case listening      // Actively listening for phrase
+        case matched        // Found a match, waiting for completion
+        case cooldown       // Brief pause after counting to prevent duplicates
+    }
+    
+    private var recognitionState: RecognitionState = .idle
+    private var matchConfidenceThreshold: Double = 0.75 // 75% similarity required (faster matching)
+    private var partialMatchBuffer: [String] = []
+    private var lastMatchTimestamp: Date?
+    private let matchCooldownInterval: TimeInterval = 0.4 // 400ms between counts (faster)
+    
+    // Rate limiting for counting
+    private var lastIncrementTime: Date?
+    private let minimumTimeBetweenIncrements: TimeInterval = 0.3 // 300ms minimum between counts (faster)
     @Published var target = 0
     @Published var prevCount = 0
     @Published var targetInput = ""
@@ -108,14 +197,17 @@ class SebhaViewModel: ObservableObject {
     // Sound player for completion sound and voice prompts
     private var audioPlayer: AVAudioPlayer?
     private var voiceRecorder: AVAudioRecorder?
+    private var speechSynthesizer = AVSpeechSynthesizer()
     
     let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "ar-SA"))!
     var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     var recognitionTask: SFSpeechRecognitionTask?
     let audioEngine = AVAudioEngine()
     
-    init() {
+    override init() {
+        super.init()
         loadSebhas()
+        loadPerSebhaStats()
         if allSebhas.isEmpty {
             allSebhas = ["سبحان الله", "الحمد لله", "لا اله الا الله"]
             allSebhasTarget = [10, 20, 30]
@@ -130,18 +222,22 @@ class SebhaViewModel: ObservableObject {
         currentIndex = 0
         counter = allSebhasCounter[0] // Set counter to the actual current count
         updateProgress()
+        updateStatistics()
         print("Initialization done")
         setupAudioSession()
         loadVoiceRecordings()
+        loadPerSebhaStats()
     }
     
     private func setupAudioSession() {
         do {
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
-            try audioSession.setActive(true)
+            // Use .playAndRecord to allow both playback and microphone
+            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            print("✅ Initial audio session configured")
         } catch {
-            print("Failed to setup audio session: \(error)")
+            print("❌ Failed to setup audio session: \(error.localizedDescription)")
         }
     }
     
@@ -231,12 +327,28 @@ class SebhaViewModel: ObservableObject {
         return dailyCounts.map { $0.count }.reduce(0, +)
     }
     
+    // Update all statistics
+    private func updateStatistics() {
+        todayTotal = calculateDailyStats()
+        weekTotal = calculateWeeklyStats()
+        monthTotal = calculateMonthlyStats()
+        allTimeTotal = allSebhasCounter.reduce(0, +)
+    }
+    
     // Ensure to update the countHistory whenever a count is incremented
     func incrementCount(for sebha: String) {
         counter += 1
         allSebhasCounter[currentIndex] += 1
         countHistory.append((date: Date(), count: 1))
+        
+        // Update per-sebha statistics
+        if perSebhaStats[sebha] == nil {
+            perSebhaStats[sebha] = SebhaStatistics()
+        }
+        perSebhaStats[sebha]?.increment(by: 1)
+        
         updateProgress()
+        updateStatistics()
         
         if counter >= currentTarget && currentTarget > 0 {
             triggerVibration()
@@ -251,7 +363,7 @@ class SebhaViewModel: ObservableObject {
         saveSebhas()
     }
     
-    private func updateProgress() {
+    func updateProgress() {
         if currentTarget > 0 {
             currentSebhaProgress = min(Double(counter) / Double(currentTarget), 1.0)
         } else {
@@ -321,6 +433,9 @@ class SebhaViewModel: ObservableObject {
         UserDefaults.standard.set(allSebhasTarget, forKey: "allSebhasTarget")
         UserDefaults.standard.set(allSebhasCounter, forKey: "allSebhasCounter")
         UserDefaults.standard.set(favoriteSebhas, forKey: "favoriteSebhas")
+        
+        // Save per-sebha statistics
+        savePerSebhaStats()
         
         // Force synchronize to ensure data is written to disk
         UserDefaults.standard.synchronize()
@@ -442,165 +557,565 @@ class SebhaViewModel: ObservableObject {
         print("Updated counter to: \(counter) for sebha: \(selectedSebha)")
     }
     private var isRestarting = false // Added flag to prevent multiple restarts
+    
+    // MARK: - Tarteel-Style Voice Recognition System
+    
     private func handleSpokenText(_ text: String) {
-        // Debug current state
-        print("=== VOICE RECOGNITION DEBUG ===")
-        print("Current selectedSebha: '\(selectedSebha)'")
-        print("Current index: \(currentIndex)")
-        print("All sebhas: \(allSebhas)")
-        print("Recognized text: '\(text)'")
+        let now = Date()
         
-        // Normalize Arabic text for both sebha and spoken text
-        let sebhaPhrase = selectedSebha.trimmingCharacters(in: .whitespacesAndNewlines).normalizedArabic()
-        let normalizedSpokenText = text.normalizedArabic()
-        
-        let sebhaWords = sebhaPhrase.split(separator: " ").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-        let spokenWords = normalizedSpokenText.split(separator: " ").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-        
-        print("Sebha phrase after trimming and normalization: '\(sebhaPhrase)'")
-        print("Spoken text after normalization: '\(normalizedSpokenText)'")
-        print("Sebha words: \(sebhaWords)")
-        print("Spoken words: \(spokenWords)")
-        print("Sebha words count: \(sebhaWords.count)")
-        print("Spoken words count: \(spokenWords.count)")
-        
-        // Check if we have valid data
-        guard !sebhaPhrase.isEmpty && !sebhaWords.isEmpty else {
-            print("❌ ERROR: Selected sebha is empty or has no words!")
+        // Validate input
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
         
-        guard !spokenWords.isEmpty else {
-            print("❌ ERROR: No spoken words detected!")
+        // Normalize Arabic text (critical for matching)
+        let normalizedSpoken = text.normalizedArabic().lowercased()
+        let normalizedTarget = selectedSebha.normalizedArabic().lowercased()
+        
+        print("🎤 Input: '\(text)'")
+        print("🔄 Normalized: '\(normalizedSpoken)'")
+        print("🎯 Target: '\(normalizedTarget)'")
+        print("📊 State: \(recognitionState)")
+        
+        // COOLDOWN CHECK: Prevent rapid duplicate counts
+        if recognitionState == .cooldown {
+            if let lastMatch = lastMatchTimestamp,
+               now.timeIntervalSince(lastMatch) < matchCooldownInterval {
+                print("❄️ In cooldown period, ignoring input")
+                return
+            } else {
+                // Cooldown expired, reset to listening
+                recognitionState = .listening
+                partialMatchBuffer.removeAll()
+            }
+        }
+        
+        // Initialize state if needed
+        if recognitionState == .idle {
+            recognitionState = .listening
+        }
+        
+        // TARTEEL APPROACH: Match on final results, not partials
+        // This prevents counting partial speech as complete phrases
+        
+        // Check if this is exactly the same as what we just processed
+        if normalizedSpoken == lastRecognizedText {
+            print("⏭️ Exact duplicate input")
             return
         }
         
-        var matchCount = 0
+        // MATCHING STRATEGY: Use Tarteel's approach
+        // 1. Check for complete phrase match
+        let phraseMatch = checkPhraseMatch(spoken: normalizedSpoken, target: normalizedTarget)
+        
+        if phraseMatch.isMatch {
+            print("✅ MATCH FOUND! Confidence: \(String(format: "%.1f%%", phraseMatch.confidence * 100))")
+            
+            // Verify this is a new, complete utterance
+            if recognitionState == .listening {
+                handleSuccessfulMatch(normalizedSpoken)
+            }
+            return
+        }
+        
+        // 2. Build up partial buffer for compound phrases
+        partialMatchBuffer.append(normalizedSpoken)
+        
+        // Keep buffer manageable
+        if partialMatchBuffer.count > 5 {
+            partialMatchBuffer.removeFirst()
+        }
+        
+        // Check if combined buffer matches
+        let combinedBuffer = partialMatchBuffer.joined(separator: " ")
+        let bufferMatch = checkPhraseMatch(spoken: combinedBuffer, target: normalizedTarget)
+        
+        if bufferMatch.isMatch {
+            print("✅ BUFFER MATCH! Confidence: \(String(format: "%.1f%%", bufferMatch.confidence * 100))")
+            handleSuccessfulMatch(combinedBuffer)
+            return
+        }
+        
+        // Update last recognized for next comparison
+        lastRecognizedText = normalizedSpoken
+        
+        print("❌ No match (best confidence: \(String(format: "%.1f%%", max(phraseMatch.confidence, bufferMatch.confidence) * 100)))")
+    }
+    
+    // Tarteel-style phrase matching algorithm
+    private func checkPhraseMatch(spoken: String, target: String) -> (isMatch: Bool, confidence: Double) {
+        // Handle empty cases
+        guard !spoken.isEmpty && !target.isEmpty else {
+            return (false, 0.0)
+        }
+        
+        // Split into words for analysis
+        let spokenWords = spoken.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        let targetWords = target.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        
+        guard !spokenWords.isEmpty && !targetWords.isEmpty else {
+            return (false, 0.0)
+        }
+        
+        // METHOD 1: Exact substring match (highest priority)
+        if spoken.contains(target) || target.contains(spoken) {
+            let confidence = Double(min(spoken.count, target.count)) / Double(max(spoken.count, target.count))
+            if confidence >= 0.65 { // Lower threshold for speed
+                return (true, confidence)
+            }
+        }
+        
+        // METHOD 2: Sequential word matching (Tarteel's core algorithm)
+        var matchedWords = 0
+        var targetWordIndex = 0
+        
+        for spokenWord in spokenWords {
+            // Check if this spoken word matches the current target word
+            if targetWordIndex < targetWords.count {
+                let targetWord = targetWords[targetWordIndex]
+                
+                // Exact match
+                if spokenWord == targetWord {
+                    matchedWords += 1
+                    targetWordIndex += 1
+                    continue
+                }
+                
+                // Contains match (for longer words)
+                if spokenWord.contains(targetWord) || targetWord.contains(spokenWord) {
+                    matchedWords += 1
+                    targetWordIndex += 1
+                    continue
+                }
+                
+                // Phonetic similarity match
+                let similarity = spokenWord.phoneticSimilarity(to: targetWord)
+                if similarity >= 0.75 { // Lower threshold for faster matching
+                    matchedWords += 1
+                    targetWordIndex += 1
+                    continue
+                }
+            }
+        }
+        
+        // Calculate confidence based on matched words
+        let wordMatchRatio = Double(matchedWords) / Double(targetWords.count)
+        
+        // Require at least 75% of words to match (faster)
+        if wordMatchRatio >= 0.75 {
+            return (true, wordMatchRatio)
+        }
+        
+        // METHOD 3: Levenshtein distance for whole phrase (fallback)
+        let overallSimilarity = spoken.phoneticSimilarity(to: target)
+        
+        if overallSimilarity >= matchConfidenceThreshold {
+            return (true, overallSimilarity)
+        }
+        
+        // No match found
+        return (false, max(wordMatchRatio, overallSimilarity))
+    }
+    
+    // Handle a successful match
+    private func handleSuccessfulMatch(_ matchedText: String) {
+        // Update state
+        recognitionState = .matched
+        lastRecognizedText = matchedText
+        lastMatchTimestamp = Date()
+        
+        // Clear buffer
+        partialMatchBuffer.removeAll()
+        
+        // Increment counter with rate limiting
+        incrementCounterWithRateLimit()
+        
+        // Enter cooldown to prevent immediate re-counting
+        recognitionState = .cooldown
+    }
+    
+    // Rate-limited counter increment
+    private func incrementCounterWithRateLimit() {
+        let now = Date()
+        
+        // Check rate limit
+        if let lastTime = lastIncrementTime {
+            let timeSinceLastIncrement = now.timeIntervalSince(lastTime)
+            if timeSinceLastIncrement < minimumTimeBetweenIncrements {
+                print("⏱️ Rate limit: \(String(format: "%.1f", timeSinceLastIncrement))s since last (min: \(minimumTimeBetweenIncrements)s)")
+                return
+            }
+        }
+        
+        // Update timestamp
+        lastIncrementTime = now
+        
+        // Increment counter
+        if currentIndex < allSebhasCounter.count {
+            allSebhasCounter[currentIndex] += 1
+            counter = allSebhasCounter[currentIndex]
+            
+            // Update statistics
+            var stats = perSebhaStats[selectedSebha] ?? SebhaStatistics()
+            stats.increment()
+            perSebhaStats[selectedSebha] = stats
+            
+            // Update totals
+            todayTotal += 1
+            weekTotal += 1
+            monthTotal += 1
+            allTimeTotal += 1
+            
+            // Add to history
+            countHistory.append((date: Date(), count: 1))
+            
+            // Update progress
+            updateProgress()
+            
+            // Haptic feedback
+            triggerVibration()
+            
+            // Save
+            saveSebhas()
+            savePerSebhaStats()
+            
+            print("✅ Counter incremented to: \(counter)")
+            
+            // Check if target reached
+            if counter >= currentTarget {
+                handleTargetReached()
+            }
+        }
+    }
+    
+    // Helper function for target reached
+    private func handleTargetReached() {
+        playCompletionSound()
+        delegate?.didReachTarget()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.switchToNextSebha()
+        }
+    }
+    
+    // Exact matching algorithm - requires perfect match
+    private func countExactMatches(sebhaWords: [String], spokenWords: [String]) -> Int {
+        var count = 0
         var i = 0
         
         while i <= spokenWords.count - sebhaWords.count {
-            var isMatch = true
+            var matched = true
             for j in 0..<sebhaWords.count {
-                let spokenWord = spokenWords[i + j]
-                let sebhaWord = sebhaWords[j]
-                print("Comparing: '\(spokenWord)' with '\(sebhaWord)'")
-                if spokenWord.caseInsensitiveCompare(sebhaWord) != .orderedSame {
-                    isMatch = false
-                    print("No match at word \(i + j): '\(spokenWord)' != '\(sebhaWord)'")
+                if spokenWords[i + j] != sebhaWords[j] {
+                    matched = false
                     break
                 }
             }
-            if isMatch {
-                matchCount += 1
-                print("Match found: \(Array(spokenWords[i..<i + sebhaWords.count]).joined(separator: " "))")
-                i += sebhaWords.count // Move the index by the length of the phrase to avoid overlapping
+            if matched {
+                count += 1
+                i += sebhaWords.count
+                print("  ✓ Exact match at position \(i)")
             } else {
-                print("No match: \(Array(spokenWords[i..<min(i + sebhaWords.count, spokenWords.count)]).joined(separator: " "))")
                 i += 1
             }
         }
         
-        print("Total matches found: \(matchCount)")
+        return count
+    }
+    
+    // Fuzzy matching - allows minor pronunciation variations
+    private func countFuzzyMatches(sebhaWords: [String], spokenWords: [String]) -> Int {
+        let threshold = 0.80 // 80% similarity required
+        var count = 0
+        var i = 0
         
-        let newMatchesCount = matchCount - before
-        before = matchCount
-        
-        if newMatchesCount > 0 {
-            counter += newMatchesCount
-            allSebhasCounter[currentIndex] += newMatchesCount
-            saveSebhas()
+        while i <= spokenWords.count - sebhaWords.count {
+            var totalSimilarity = 0.0
+            for j in 0..<sebhaWords.count {
+                let similarity = spokenWords[i + j].phoneticSimilarity(to: sebhaWords[j])
+                totalSimilarity += similarity
+            }
             
-            print("New matches count: \(newMatchesCount)")
-            print("Updated counter: \(counter)")
-            print("All Sebhas counter: \(allSebhasCounter)")
+            let averageSimilarity = totalSimilarity / Double(sebhaWords.count)
             
-            if counter >= currentTarget && currentTarget > 0 {
-                triggerVibration()
-                playCompletionSound()
-                //showAlert = true
-                delegate?.didReachTarget()
-                
-                // Auto switch to next sebha after a brief delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    self.switchToNextSebha()
-                }
+            if averageSimilarity >= threshold {
+                count += 1
+                i += sebhaWords.count
+                print("  ≈ Fuzzy match at position \(i) (similarity: \(Int(averageSimilarity * 100))%)")
+            } else {
+                i += 1
             }
         }
+        
+        return count
+    }
+    
+    // Partial matching - for very fast/abbreviated speech
+    private func countPartialMatches(sebhaPhrase: String, spokenWords: [String]) -> Int {
+        let threshold = 0.75 // 75% similarity for partial matches
+        var count = 0
+        
+        // Check if any single word has high similarity to the entire phrase
+        for word in spokenWords {
+            let similarity = word.phoneticSimilarity(to: sebhaPhrase)
+            if similarity >= threshold {
+                count += 1
+                print("  ~ Partial match: '\(word)' (similarity: \(Int(similarity * 100))%)")
+            }
+        }
+        
+        return count
     }
 
 
         
     func startSpeechRecognition() {
-        before = 0 // Reset the count before starting recognition
+        // Reset state
+        lastRecognizedText = ""
+        processingBuffer.removeAll()
+        lastProcessTime = Date()
         
-        // Stop any existing recognition
+        // Stop any existing recognition completely
         if audioEngine.isRunning {
-            stopSpeechRecognition()
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
         }
         
+        // Clear old tasks
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        
+        // Wait a bit for cleanup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Configure audio session BEFORE accessing input node
+            do {
+                let audioSession = AVAudioSession.sharedInstance()
+                
+                // CRITICAL: Use .playAndRecord NOT .record
+                try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+                try audioSession.setActive(true, options: [.notifyOthersOnDeactivation])
+                print("✅ Audio session configured for speech recognition")
+            } catch {
+                print("❌ Failed to configure audio session: \(error.localizedDescription)")
+                return
+            }
+            
+            // Check authorization
+            let authStatus = SFSpeechRecognizer.authorizationStatus()
+            guard authStatus == .authorized else {
+                print("❌ Speech recognition not authorized: \(authStatus.rawValue)")
+                if authStatus == .notDetermined {
+                    SFSpeechRecognizer.requestAuthorization { status in
+                        if status == .authorized {
+                            DispatchQueue.main.async {
+                                self.startSpeechRecognition()
+                            }
+                        }
+                    }
+                }
+                return
+            }
+            
+            self.startRecognitionEngine()
+        }
+    }
+    
+    private func startRecognitionEngine() {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         
-        let inputNode = audioEngine.inputNode
         guard let recognitionRequest = recognitionRequest else {
-            fatalError("Unable to create an SFSpeechAudioBufferRecognitionRequest object")
+            print("❌ Unable to create recognition request")
+            return
         }
         
+        // Configure for continuous, real-time recognition
         recognitionRequest.shouldReportPartialResults = true
+        recognitionRequest.taskHint = .dictation // Better for short phrases
         
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+        // Enhanced recognition settings for Arabic
+        if #available(iOS 13, *) {
+            recognitionRequest.requiresOnDeviceRecognition = false // Use server for better accuracy
+        }
+        
+        // Add context words to improve recognition
+        if #available(iOS 16, *) {
+            recognitionRequest.addsPunctuation = false
+            let contextStrings = allSebhas.map { $0.normalizedArabic() }
+            recognitionRequest.contextualStrings = contextStrings
+        }
+        
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            guard let self = self else { return }
+            
+            var isFinal = false
+            
             if let result = result {
                 let spokenText = result.bestTranscription.formattedString
+                isFinal = result.isFinal
+                
                 DispatchQueue.main.async {
                     self.handleSpokenText(spokenText)
                 }
             }
             
-            if error != nil || result?.isFinal == true {
-                self.stopSpeechRecognition()
+            if let error = error {
+                let nsError = error as NSError
+                print("⚠️ Recognition error: \(error.localizedDescription) (Code: \(nsError.code))")
+                
+                // Only restart on specific errors, not 1101
+                if nsError.code == 1107 {
+                    print("❌ Audio session error 1107 - stopping")
+                    DispatchQueue.main.async {
+                        self.stopSpeechRecognition()
+                    }
+                }
+            }
+            
+            if isFinal {
+                // Restart recognition faster for continuous listening
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if self.isVoice && !self.audioEngine.isRunning && !self.isPlayingAudio {
+                        self.startSpeechRecognition()
+                    }
+                }
             }
         }
         
-        // Use the input node's actual format
+        // Get input node AFTER audio session is configured
+        let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, when in
-            self.recognitionRequest?.append(buffer)
+        
+        // Validate format before installing tap
+        guard recordingFormat.sampleRate > 0 && recordingFormat.channelCount > 0 else {
+            print("❌ Invalid audio format: sampleRate=\(recordingFormat.sampleRate), channels=\(recordingFormat.channelCount)")
+            return
+        }
+        
+        print("✅ Using audio format: sampleRate=\(recordingFormat.sampleRate), channels=\(recordingFormat.channelCount)")
+        
+        // Install tap with smaller buffer for faster processing
+        inputNode.installTap(onBus: 0, bufferSize: 512, format: recordingFormat) { [weak self] buffer, when in
+            self?.recognitionRequest?.append(buffer)
         }
         
         audioEngine.prepare()
         
         do {
             try audioEngine.start()
-            print("Speech recognition started successfully")
+            print("🎤 Speech recognition started (enhanced mode)")
+            print("🎙️ Microphone is now listening...")
         } catch {
-            print("audioEngine couldn't start because of an error: \(error.localizedDescription)")
+            print("❌ Audio engine couldn't start: \(error.localizedDescription)")
+            // Clean up on failure
+            inputNode.removeTap(onBus: 0)
         }
     }
 
     func stopSpeechRecognition() {
+        // Stop in the correct order to prevent crashes
         if audioEngine.isRunning {
-            audioEngine.inputNode.removeTap(onBus: 0)
             audioEngine.stop()
-            recognitionRequest?.endAudio()
-            recognitionTask?.cancel()
-            recognitionRequest = nil
-            recognitionTask = nil
+            audioEngine.inputNode.removeTap(onBus: 0)
         }
+        
+        // Then stop recognition
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        
+        // Reset state - Tarteel-style cleanup
+        lastRecognizedText = ""
+        processingBuffer.removeAll()
+        partialMatchBuffer.removeAll()
+        recognitionState = .idle
+        lastMatchTimestamp = nil
+        
+        print("🛑 Speech recognition stopped and state reset")
     }
     
     // MARK: - Sound Functions
     private func playCompletionSound() {
         // Play system sound for completion
         AudioServicesPlaySystemSound(1001) // Success sound
+    }
+    
+    // Announce new sebha using Text-to-Speech
+    private func announceNewSebha(shouldRestartRecognition: Bool = false) {
+        // Don't try to stop recognition if it was already stopped by caller
+        let wasRecognizing = shouldRestartRecognition ? shouldRestartRecognition : isVoice
         
-        // Optionally, you can also play a custom sound
-        // guard let url = Bundle.main.url(forResource: "completion", withExtension: "mp3") else { return }
-        // 
-        // do {
-        //     audioPlayer = try AVAudioPlayer(contentsOf: url)
-        //     audioPlayer?.play()
-        // } catch {
-        //     print("Error playing completion sound: \(error)")
-        // }
+        // Only stop if we're handling it ourselves (not pre-stopped)
+        if !shouldRestartRecognition && wasRecognizing {
+            stopSpeechRecognition()
+        }
+        
+        print("🔊 Announcing new sebha: \(selectedSebha) (will restart recognition: \(wasRecognizing))")
+        
+        // First try to play recorded voice prompt
+        if hasVoiceRecording(for: selectedSebha) {
+            // playVoicePrompt already handles audio session and recognition restart
+            playVoicePrompt(for: selectedSebha, shouldRestartRecognition: wasRecognizing)
+            return
+        }
+        
+        // Set flag to prevent premature restart
+        isPlayingAudio = true
+        
+        // Fallback to Text-to-Speech announcement
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try audioSession.setActive(true)
+        } catch {
+            print("❌ Failed to set audio session for TTS: \(error)")
+            isPlayingAudio = false
+            // Restore recognition if setup fails
+            if wasRecognizing {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.startSpeechRecognition()
+                }
+            }
+            return
+        }
+        
+        let utterance = AVSpeechUtterance(string: selectedSebha)
+        utterance.voice = AVSpeechSynthesisVoice(language: "ar-SA")
+        utterance.rate = 0.5 // Speak slower for clarity
+        utterance.volume = 1.0
+        utterance.pitchMultiplier = 1.0
+        
+        // Stop any current speech
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+        
+        speechSynthesizer.speak(utterance)
+        print("🔊 TTS Announcing: \(selectedSebha)")
+        
+        // Restore speech recognition after TTS completes
+        // Estimate duration based on text length
+        let estimatedDuration = Double(selectedSebha.count) * 0.15 + 1.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + estimatedDuration) {
+            self.isPlayingAudio = false
+            
+            // Restore audio session for recording
+            do {
+                let audioSession = AVAudioSession.sharedInstance()
+                try audioSession.setCategory(.record, mode: .measurement, options: [.allowBluetooth])
+                try audioSession.setActive(true)
+                print("✅ Audio session restored after TTS")
+            } catch {
+                print("❌ Failed to restore audio session after TTS: \(error)")
+            }
+            
+            if wasRecognizing {
+                print("🔄 Restarting voice recognition after TTS")
+                self.startSpeechRecognition()
+            }
+        }
     }
     
     
@@ -611,8 +1126,16 @@ class SebhaViewModel: ObservableObject {
         selectedSebha = allSebhas[index]
         currentTarget = allSebhasTarget[index]
         counter = allSebhasCounter[index] // Use the actual current count for this sebha
+        
+        // Reset voice recognition state when changing sebha
+        lastRecognizedText = ""
+        processingBuffer.removeAll()
+        lastProcessTime = Date()
+        
         updateProgress()
         saveSebhas()
+        
+        print("✅ Selected sebha: \(selectedSebha) (index: \(index), counter: \(counter))")
     }
     
     // MARK: - Voice Recording Functions
@@ -632,23 +1155,51 @@ class SebhaViewModel: ObservableObject {
             return
         }
         
+        // Stop any ongoing speech recognition
+        if isVoice {
+            stopSpeechRecognition()
+        }
+        
+        // Stop audio player if running
+        audioPlayer?.stop()
+        audioPlayer = nil
+        
         recordingForSebhaIndex = index
         let recordingURL = getVoiceRecordingURL(for: sebha)
         
-        let settings = [
+        // Delete existing file if it exists
+        if FileManager.default.fileExists(atPath: recordingURL.path) {
+            try? FileManager.default.removeItem(at: recordingURL)
+        }
+        
+        // Configure audio session for recording
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.record, mode: .default, options: [])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            print("✅ Audio session configured for recording")
+        } catch {
+            print("❌ Failed to setup audio session for recording: \(error)")
+            return
+        }
+        
+        let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 12000,
+            AVSampleRateKey: 44100.0,
             AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+            AVEncoderBitRateKey: 128000
         ]
         
         do {
             voiceRecorder = try AVAudioRecorder(url: recordingURL, settings: settings)
+            voiceRecorder?.prepareToRecord()
             voiceRecorder?.record()
             isRecordingVoicePrompt = true
-            print("Started recording voice prompt for: \(sebha)")
+            print("🎙️ Started recording voice prompt for: \(sebha)")
         } catch {
-            print("Could not start recording voice prompt: \(error)")
+            print("❌ Could not start recording voice prompt: \(error)")
+            recordingForSebhaIndex = nil
         }
     }
     
@@ -660,27 +1211,142 @@ class SebhaViewModel: ObservableObject {
         
         let sebha = allSebhas[index]
         let recordingURL = getVoiceRecordingURL(for: sebha)
-        sebhaRecordings[sebha] = recordingURL
         
-        saveVoiceRecordings()
-        print("Stopped recording voice prompt for: \(sebha)")
+        // Wait a bit for the file to be finalized
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Verify the file exists and is valid
+            if FileManager.default.fileExists(atPath: recordingURL.path) {
+                self.sebhaRecordings[sebha] = recordingURL
+                self.saveVoiceRecordings()
+                print("✅ Saved voice recording for: \(sebha)")
+                print("   File path: \(recordingURL.path)")
+                
+                // Restore audio session to default state
+                do {
+                    let audioSession = AVAudioSession.sharedInstance()
+                    try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+                    try audioSession.setActive(true)
+                } catch {
+                    print("Failed to restore audio session: \(error)")
+                }
+            } else {
+                print("❌ Recording file does not exist at: \(recordingURL.path)")
+            }
+        }
         
         voiceRecorder = nil
         recordingForSebhaIndex = nil
     }
     
-    func playVoicePrompt(for sebha: String) {
+    func playVoicePrompt(for sebha: String, shouldRestartRecognition: Bool = false) {
         guard let recordingURL = sebhaRecordings[sebha] else {
             print("No voice recording found for: \(sebha)")
             return
         }
         
+        // Verify file exists before attempting playback
+        guard FileManager.default.fileExists(atPath: recordingURL.path) else {
+            print("❌ Recording file does not exist at: \(recordingURL.path)")
+            sebhaRecordings.removeValue(forKey: sebha)
+            saveVoiceRecordings()
+            return
+        }
+        
+        // Use the passed parameter or default to current state
+        let wasRecognizing = shouldRestartRecognition ? shouldRestartRecognition : isVoice
+        
+        // Only stop if we're handling it ourselves (not pre-stopped)
+        if !shouldRestartRecognition && wasRecognizing {
+            stopSpeechRecognition()
+        }
+        
+        print("🔊 Playing voice prompt (will restart recognition: \(wasRecognizing))")
+        
+        // Store flag for delegate to use after playback completes
+        shouldRestartRecognitionAfterPlayback = wasRecognizing
+        
+        // Set flag to prevent premature restart
+        isPlayingAudio = true
+        
         do {
+            // Configure audio session for playback
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try audioSession.setActive(true)
+            
+            // Load audio file data first to verify it's valid
+            let audioData = try Data(contentsOf: recordingURL)
+            print("📁 Audio file size: \(audioData.count) bytes")
+            
             audioPlayer = try AVAudioPlayer(contentsOf: recordingURL)
-            audioPlayer?.play()
-            print("Playing voice prompt for: \(sebha)")
+            audioPlayer?.prepareToPlay()
+            audioPlayer?.volume = 1.0
+            
+            // Set delegate to handle playback completion
+            audioPlayer?.delegate = self
+            
+            let success = audioPlayer?.play() ?? false
+            if success {
+                let duration = audioPlayer?.duration ?? 2.0
+                print("🔊 Playing voice prompt for: \(sebha) (duration: \(duration)s)")
+                
+                // Safety timeout: if delegate doesn't fire within expected time, force cleanup
+                // This prevents the app from getting stuck if playback fails silently
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration + 2.0) {
+                    if self.isPlayingAudio {
+                        print("⚠️ Audio playback timeout - forcing cleanup")
+                        self.isPlayingAudio = false
+                        
+                        // Use stored flag instead of wasRecognizing local variable
+                        if self.shouldRestartRecognitionAfterPlayback {
+                            do {
+                                let audioSession = AVAudioSession.sharedInstance()
+                                try audioSession.setCategory(.record, mode: .measurement, options: [.allowBluetooth])
+                                try audioSession.setActive(true)
+                            } catch {
+                                print("❌ Failed to restore audio session: \(error)")
+                            }
+                            
+                            if !self.audioEngine.isRunning {
+                                self.startSpeechRecognition()
+                            }
+                            
+                            // Clear flag after use
+                            self.shouldRestartRecognitionAfterPlayback = false
+                        }
+                    }
+                }
+            } else {
+                print("❌ Failed to start playback")
+                isPlayingAudio = false
+                shouldRestartRecognitionAfterPlayback = false // Clear flag on failure
+                
+                // Restore recognition even if playback fails
+                if wasRecognizing {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.startSpeechRecognition()
+                    }
+                }
+            }
         } catch {
-            print("Could not play voice prompt: \(error)")
+            print("❌ Could not play voice prompt: \(error)")
+            print("   File path: \(recordingURL.path)")
+            print("   Error code: \((error as NSError).code)")
+            
+            isPlayingAudio = false
+            shouldRestartRecognitionAfterPlayback = false // Clear flag on error
+            
+            // Try to remove corrupted file
+            try? FileManager.default.removeItem(at: recordingURL)
+            sebhaRecordings.removeValue(forKey: sebha)
+            saveVoiceRecordings()
+            
+            // Restore recognition even on error
+            if wasRecognizing {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.startSpeechRecognition()
+                }
+            }
         }
     }
     
@@ -761,5 +1427,106 @@ class SebhaViewModel: ObservableObject {
         saveSebhas()
         
         print("Reset all statistics completely")
+    }
+    
+    // MARK: - AVAudioPlayerDelegate
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        print("🔊 Audio playback finished (success: \(flag))")
+        isPlayingAudio = false
+        
+        // Use stored flag instead of current isVoice state
+        // This is crucial because isVoice may have been changed before playback completed
+        if shouldRestartRecognitionAfterPlayback {
+            print("🔄 Will restart recognition after audio (flag was set)")
+            
+            // ENHANCED: Longer delay with full cleanup (2.0s total)
+            // This prevents error 1107 by giving iOS adequate time
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                do {
+                    let audioSession = AVAudioSession.sharedInstance()
+                    
+                    // CRITICAL: Fully deactivate with proper cleanup
+                    try audioSession.setActive(false, options: [.notifyOthersOnDeactivation])
+                    print("🔄 Audio session deactivated completely")
+                    
+                    // Longer delay for hardware to settle (0.5s)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        do {
+                            // Reconfigure with full options for recording
+                            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+                            try audioSession.setActive(true, options: [.notifyOthersOnDeactivation])
+                            print("✅ Audio session restored for voice recognition (delegate)")
+                            
+                            // Additional delay before restarting engine (0.8s)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                // Final check before restart
+                                if self.shouldRestartRecognitionAfterPlayback {
+                                    // Ensure engine is fully stopped
+                                    if self.audioEngine.isRunning {
+                                        self.audioEngine.stop()
+                                        self.audioEngine.inputNode.removeTap(onBus: 0)
+                                    }
+                                    
+                                    // Small delay after stopping (0.3s)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        print("🔄 Restarting speech recognition after audio playback")
+                                        self.startSpeechRecognition()
+                                        // Clear the flag after successful restart
+                                        self.shouldRestartRecognitionAfterPlayback = false
+                                    }
+                                }
+                            }
+                        } catch {
+                            print("❌ Failed to reactivate audio session: \(error.localizedDescription)")
+                            self.shouldRestartRecognitionAfterPlayback = false
+                            
+                            // Retry once after longer delay
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                if self.shouldRestartRecognitionAfterPlayback {
+                                    self.startSpeechRecognition()
+                                    self.shouldRestartRecognitionAfterPlayback = false
+                                }
+                            }
+                        }
+                    }
+                } catch {
+                    print("❌ Failed to deactivate audio session: \(error.localizedDescription)")
+                    self.shouldRestartRecognitionAfterPlayback = false
+                }
+            }
+        } else {
+            print("ℹ️ Not restarting recognition (flag not set)")
+            // Clear flag just in case
+            shouldRestartRecognitionAfterPlayback = false
+        }
+    }
+    
+    // MARK: - Per-Sebha Statistics Persistence
+    
+    func savePerSebhaStats() {
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(perSebhaStats)
+            UserDefaults.standard.set(data, forKey: "perSebhaStats")
+            print("Per-sebha stats saved: \(perSebhaStats.count) sebhas")
+        } catch {
+            print("Error saving per-sebha stats: \(error)")
+        }
+    }
+    
+    func loadPerSebhaStats() {
+        guard let data = UserDefaults.standard.data(forKey: "perSebhaStats") else {
+            print("No saved per-sebha stats found")
+            return
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            perSebhaStats = try decoder.decode([String: SebhaStatistics].self, from: data)
+            print("Per-sebha stats loaded: \(perSebhaStats.count) sebhas")
+            updateStatistics()
+        } catch {
+            print("Error loading per-sebha stats: \(error)")
+        }
     }
 }

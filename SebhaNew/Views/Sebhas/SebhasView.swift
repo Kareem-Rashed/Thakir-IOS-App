@@ -81,7 +81,7 @@ struct SebhasView: View {
             }
         }
         .sheet(isPresented: $showAddSebhaSheet) {
-            AddSebhaSheetNew(viewModel: viewModel, isPresented: $showAddSebhaSheet, newSebhaTarget: $newSebhaTarget)
+            AddSebhaSheetEnhanced(viewModel: viewModel, isPresented: $showAddSebhaSheet)
         }
         .sheet(isPresented: $showEditSebhaSheet) {
             EditSebhaSheetNew(viewModel: viewModel, isPresented: $showEditSebhaSheet)
@@ -209,6 +209,19 @@ struct ModernSebhaCard: View {
                                     .font(.headline)
                                     .fontWeight(.bold)
                                     .foregroundColor(completionPercentage >= 1.0 ? .yellow : .purple)
+                            }
+                        }
+                        
+                        // Per-sebha statistics
+                        if let stats = viewModel.perSebhaStats[sebha] {
+                            Divider()
+                                .background(Color.white.opacity(0.2))
+                                .padding(.vertical, 4)
+                            
+                            HStack(spacing: 16) {
+                                StatMini(title: "Today", value: "\(stats.todayCount)", color: .green)
+                                StatMini(title: "Week", value: "\(stats.weekCount)", color: .blue)
+                                StatMini(title: "All", value: "\(stats.allTimeCount)", color: .orange)
                             }
                         }
                         
@@ -659,6 +672,25 @@ struct RecordVoiceSheet: View {
                 }
             }
             .navigationBarHidden(true)
+        }
+    }
+}
+
+// Mini stat component for sebha cards
+struct StatMini: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.6))
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(color)
         }
     }
 }
