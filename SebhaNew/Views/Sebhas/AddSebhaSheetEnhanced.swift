@@ -4,6 +4,7 @@ import Speech
 struct AddSebhaSheetEnhanced: View {
     @ObservedObject var viewModel: SebhaViewModel
     @Binding var isPresented: Bool
+    @EnvironmentObject var appLanguage: AppLanguage
     
     @State private var sebhaText = ""
     @State private var targetCount = ""
@@ -39,11 +40,11 @@ struct AddSebhaSheetEnhanced: View {
                     VStack(spacing: 32) {
                         // Header
                         VStack(spacing: 8) {
-                            Text("Add New Sebha")
+                            Text(appLanguage.string(for: .addNewSebha))
                                 .font(.system(size: 34, weight: .bold))
                                 .foregroundColor(.white)
                             
-                            Text("Create a sebha using text or voice")
+                            Text(appLanguage.string(for: .createSebhaDesc))
                                 .font(.subheadline)
                                 .foregroundColor(.white.opacity(0.7))
                         }
@@ -56,14 +57,14 @@ struct AddSebhaSheetEnhanced: View {
                         VStack(spacing: 16) {
                             SectionHeader(
                                 icon: "text.bubble.fill",
-                                title: "Sebha Text",
-                                subtitle: inputMethod == .voice ? "Tap microphone to speak" : "Type your sebha"
+                                title: appLanguage.string(for: .sebhaText),
+                                subtitle: inputMethod == .voice ? appLanguage.string(for: .tapMicToSpeak) : appLanguage.string(for: .typeYourSebha)
                             )
                             
                             if inputMethod == .text {
                                 // Text Input
                                 ModernTextField(
-                                    placeholder: "e.g., سبحان الله",
+                                    placeholder: appLanguage.string(for: .example),
                                     text: $sebhaText,
                                     icon: "text.alignleft"
                                 )
@@ -89,8 +90,8 @@ struct AddSebhaSheetEnhanced: View {
                         VStack(spacing: 16) {
                             SectionHeader(
                                 icon: "target",
-                                title: "Daily Target",
-                                subtitle: "How many times per day?"
+                                title: appLanguage.string(for: .dailyTarget),
+                                subtitle: appLanguage.string(for: .howManyTimes)
                             )
                             
                             TargetCountSelector(targetCount: $targetCount)
@@ -101,8 +102,8 @@ struct AddSebhaSheetEnhanced: View {
                         VStack(spacing: 16) {
                             SectionHeader(
                                 icon: "waveform.circle.fill",
-                                title: "Voice Prompt (Optional)",
-                                subtitle: "Record how to pronounce this sebha"
+                                title: "\(appLanguage.string(for: .voicePrompt)) (\(appLanguage.string(for: .optional)))",
+                                subtitle: appLanguage.string(for: .recordPronunciation)
                             )
                             
                             VoicePromptRecorder(
@@ -126,7 +127,7 @@ struct AddSebhaSheetEnhanced: View {
                                 isPresented = false
                             }) {
                                 ActionButton(
-                                    title: "Cancel",
+                                    title: appLanguage.string(for: .cancel),
                                     icon: "xmark.circle.fill",
                                     color: .red,
                                     style: .secondary
@@ -137,7 +138,7 @@ struct AddSebhaSheetEnhanced: View {
                                 addSebha()
                             }) {
                                 ActionButton(
-                                    title: "Add Sebha",
+                                    title: appLanguage.string(for: .addSebha),
                                     icon: "plus.circle.fill",
                                     color: .green,
                                     style: .primary
@@ -263,19 +264,20 @@ struct AddSebhaSheetEnhanced: View {
 // MARK: - Input Method Picker
 struct InputMethodPicker: View {
     @Binding var selectedMethod: AddSebhaSheetEnhanced.InputMethod
+    @EnvironmentObject var appLanguage: AppLanguage
     
     var body: some View {
         HStack(spacing: 12) {
             MethodButton(
                 icon: "keyboard",
-                title: "Type",
+                title: appLanguage.string(for: .typeText),
                 isSelected: selectedMethod == .text,
                 action: { selectedMethod = .text }
             )
             
             MethodButton(
                 icon: "mic.fill",
-                title: "Speak",
+                title: appLanguage.string(for: .voiceInput),
                 isSelected: selectedMethod == .voice,
                 action: { selectedMethod = .voice }
             )

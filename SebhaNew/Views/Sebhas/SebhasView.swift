@@ -107,10 +107,11 @@ struct SebhasView: View {
 
 struct SebhasHeaderView: View {
     @Binding var editMode: EditMode
+    @EnvironmentObject var appLanguage: AppLanguage
     
     var body: some View {
         HStack {
-            Text("My Sebhas")
+            Text(appLanguage.string(for: .mySebhas))
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
@@ -122,7 +123,7 @@ struct SebhasHeaderView: View {
                     editMode = editMode == .active ? .inactive : .active
                 }
             }) {
-                Text(editMode == .active ? "Done" : "Edit")
+                Text(editMode == .active ? appLanguage.string(for: .done) : appLanguage.string(for: .edit))
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)

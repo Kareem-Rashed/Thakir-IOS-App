@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CustomTabBar: View {
     @Binding var selectedTab: Tab
+    @EnvironmentObject var appLanguage: AppLanguage
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
@@ -36,6 +37,7 @@ struct CustomTabBar: View {
         )
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
+        .environment(\.layoutDirection, appLanguage.currentLanguage.isRTL ? .rightToLeft : .leftToRight)
     }
 }
 
@@ -43,6 +45,7 @@ struct TabBarItem: View {
     let tab: Tab
     let isSelected: Bool
     let onTap: () -> Void
+    @EnvironmentObject var appLanguage: AppLanguage
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
@@ -52,7 +55,7 @@ struct TabBarItem: View {
                     .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
                     .symbolRenderingMode(.hierarchical)
                 
-                Text(tab.title)
+                Text(tab.localizedTitle(appLanguage: appLanguage))
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
             }
             .foregroundColor(isSelected ? .blue : (colorScheme == .dark ? .gray : .secondary))
@@ -79,6 +82,14 @@ enum Tab: CaseIterable {
         case .home: return "Home"
         case .sebhas: return "Sebhas" 
         case .profile: return "Profile"
+        }
+    }
+    
+    func localizedTitle(appLanguage: AppLanguage) -> String {
+        switch self {
+        case .home: return appLanguage.string(for: LocalizedKey.home)
+        case .sebhas: return appLanguage.string(for: LocalizedKey.sebhas)
+        case .profile: return appLanguage.string(for: LocalizedKey.profile)
         }
     }
     

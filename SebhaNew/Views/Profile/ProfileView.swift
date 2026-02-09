@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @ObservedObject var viewModel: SebhaViewModel
+    @EnvironmentObject var appLanguage: AppLanguage
     @State private var showResetAlert = false
     @State private var showResetAllAlert = false
     
@@ -28,7 +29,7 @@ struct ProfileView: View {
                                 .foregroundColor(.white.opacity(0.9))
                                 .padding(.top, 20)
                             
-                            Text("Statistics")
+                            Text(appLanguage.string(for: .statistics))
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
@@ -38,6 +39,40 @@ struct ProfileView: View {
                                 .foregroundColor(.white.opacity(0.7))
                         }
                         .padding(.bottom, 10)
+                        
+                        // Settings Card - NEW
+                        VStack(spacing: 16) {
+                            Text(appLanguage.string(for: .settings))
+                                .font(.headline)
+                                .foregroundColor(.white.opacity(0.8))
+                                .frame(maxWidth: .infinity, alignment: appLanguage.currentLanguage.isRTL ? .trailing : .leading)
+                            
+                            // Language Picker
+                            HStack {
+                                Label(appLanguage.string(for: .language), systemImage: "globe")
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                Picker("", selection: $appLanguage.currentLanguage) {
+                                    ForEach(AppLanguage.Language.allCases, id: \.self) { language in
+                                        Text(language.displayName).tag(language)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(.blue)
+                            }
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.1))
+                            )
+                        }
+                        .padding(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(.ultraThinMaterial)
+                        )
                         
                         // Quick Summary Card
                         VStack(spacing: 16) {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = SebhaViewModel()
+    @StateObject private var appLanguage = AppLanguage.shared
     @State private var delegate: SebhaViewModelDelegateClass?
     @State private var selectedTab: Tab = .home
     @Environment(\.colorScheme) var colorScheme
@@ -25,6 +26,8 @@ struct ContentView: View {
             CustomTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard)
+        .environmentObject(appLanguage)
+        .environment(\.layoutDirection, appLanguage.currentLanguage.isRTL ? .rightToLeft : .leftToRight)
         .alert(isPresented: $viewModel.showAlert) {
             Alert(
                 title: Text("🎉 Congratulations!"),
