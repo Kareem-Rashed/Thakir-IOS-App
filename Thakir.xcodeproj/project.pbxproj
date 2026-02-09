@@ -24,25 +24,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		1443C8F82E5C8E8100F6AACE /* SebhaNew.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SebhaNew.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		1443C9052E5C8E8200F6AACE /* SebhaNewTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SebhaNewTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		1443C90F2E5C8E8200F6AACE /* SebhaNewUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SebhaNewUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1443C8F82E5C8E8100F6AACE /* Thakir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Thakir.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1443C9052E5C8E8200F6AACE /* ThakirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ThakirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1443C90F2E5C8E8200F6AACE /* ThakirUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ThakirUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		1443C8FA2E5C8E8100F6AACE /* SebhaNew */ = {
+		1443C8FA2E5C8E8100F6AACE /* Thakir */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SebhaNew;
+			path = Thakir;
 			sourceTree = "<group>";
 		};
-		1443C9082E5C8E8200F6AACE /* SebhaNewTests */ = {
+		1443C9082E5C8E8200F6AACE /* ThakirTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SebhaNewTests;
+			path = ThakirTests;
 			sourceTree = "<group>";
 		};
-		1443C9122E5C8E8200F6AACE /* SebhaNewUITests */ = {
+		1443C9122E5C8E8200F6AACE /* ThakirUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SebhaNewUITests;
+			path = ThakirUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		1443C8EF2E5C8E8100F6AACE = {
 			isa = PBXGroup;
 			children = (
-				1443C8FA2E5C8E8100F6AACE /* SebhaNew */,
-				1443C9082E5C8E8200F6AACE /* SebhaNewTests */,
-				1443C9122E5C8E8200F6AACE /* SebhaNewUITests */,
+				1443C8FA2E5C8E8100F6AACE /* Thakir */,
+				1443C9082E5C8E8200F6AACE /* ThakirTests */,
+				1443C9122E5C8E8200F6AACE /* ThakirUITests */,
 				1443C8F92E5C8E8100F6AACE /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +85,9 @@
 		1443C8F92E5C8E8100F6AACE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1443C8F82E5C8E8100F6AACE /* SebhaNew.app */,
-				1443C9052E5C8E8200F6AACE /* SebhaNewTests.xctest */,
-				1443C90F2E5C8E8200F6AACE /* SebhaNewUITests.xctest */,
+				1443C8F82E5C8E8100F6AACE /* Thakir.app */,
+				1443C9052E5C8E8200F6AACE /* ThakirTests.xctest */,
+				1443C90F2E5C8E8200F6AACE /* ThakirUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		1443C8F72E5C8E8100F6AACE /* SebhaNew */ = {
+		1443C8F72E5C8E8100F6AACE /* Thakir */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1443C9192E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "SebhaNew" */;
+			buildConfigurationList = 1443C9192E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "Thakir" */;
 			buildPhases = (
 				1443C8F42E5C8E8100F6AACE /* Sources */,
 				1443C8F52E5C8E8100F6AACE /* Frameworks */,
@@ -108,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				1443C8FA2E5C8E8100F6AACE /* SebhaNew */,
+				1443C8FA2E5C8E8100F6AACE /* Thakir */,
 			);
-			name = SebhaNew;
+			name = Thakir;
 			packageProductDependencies = (
 			);
 			productName = SebhaNew;
-			productReference = 1443C8F82E5C8E8100F6AACE /* SebhaNew.app */;
+			productReference = 1443C8F82E5C8E8100F6AACE /* Thakir.app */;
 			productType = "com.apple.product-type.application";
 		};
-		1443C9042E5C8E8200F6AACE /* SebhaNewTests */ = {
+		1443C9042E5C8E8200F6AACE /* ThakirTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1443C91C2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "SebhaNewTests" */;
+			buildConfigurationList = 1443C91C2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "ThakirTests" */;
 			buildPhases = (
 				1443C9012E5C8E8200F6AACE /* Sources */,
 				1443C9022E5C8E8200F6AACE /* Frameworks */,
@@ -131,18 +131,18 @@
 				1443C9072E5C8E8200F6AACE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				1443C9082E5C8E8200F6AACE /* SebhaNewTests */,
+				1443C9082E5C8E8200F6AACE /* ThakirTests */,
 			);
-			name = SebhaNewTests;
+			name = ThakirTests;
 			packageProductDependencies = (
 			);
 			productName = SebhaNewTests;
-			productReference = 1443C9052E5C8E8200F6AACE /* SebhaNewTests.xctest */;
+			productReference = 1443C9052E5C8E8200F6AACE /* ThakirTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		1443C90E2E5C8E8200F6AACE /* SebhaNewUITests */ = {
+		1443C90E2E5C8E8200F6AACE /* ThakirUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1443C91F2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "SebhaNewUITests" */;
+			buildConfigurationList = 1443C91F2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "ThakirUITests" */;
 			buildPhases = (
 				1443C90B2E5C8E8200F6AACE /* Sources */,
 				1443C90C2E5C8E8200F6AACE /* Frameworks */,
@@ -154,13 +154,13 @@
 				1443C9112E5C8E8200F6AACE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				1443C9122E5C8E8200F6AACE /* SebhaNewUITests */,
+				1443C9122E5C8E8200F6AACE /* ThakirUITests */,
 			);
-			name = SebhaNewUITests;
+			name = ThakirUITests;
 			packageProductDependencies = (
 			);
 			productName = SebhaNewUITests;
-			productReference = 1443C90F2E5C8E8200F6AACE /* SebhaNewUITests.xctest */;
+			productReference = 1443C90F2E5C8E8200F6AACE /* ThakirUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 1443C8F32E5C8E8100F6AACE /* Build configuration list for PBXProject "SebhaNew" */;
+			buildConfigurationList = 1443C8F32E5C8E8100F6AACE /* Build configuration list for PBXProject "Thakir" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				1443C8F72E5C8E8100F6AACE /* SebhaNew */,
-				1443C9042E5C8E8200F6AACE /* SebhaNewTests */,
-				1443C90E2E5C8E8200F6AACE /* SebhaNewUITests */,
+				1443C8F72E5C8E8100F6AACE /* Thakir */,
+				1443C9042E5C8E8200F6AACE /* ThakirTests */,
+				1443C90E2E5C8E8200F6AACE /* ThakirUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		1443C9072E5C8E8200F6AACE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 1443C8F72E5C8E8100F6AACE /* SebhaNew */;
+			target = 1443C8F72E5C8E8100F6AACE /* Thakir */;
 			targetProxy = 1443C9062E5C8E8200F6AACE /* PBXContainerItemProxy */;
 		};
 		1443C9112E5C8E8200F6AACE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 1443C8F72E5C8E8100F6AACE /* SebhaNew */;
+			target = 1443C8F72E5C8E8100F6AACE /* Thakir */;
 			targetProxy = 1443C9102E5C8E8200F6AACE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -467,7 +467,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SebhaNew.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SebhaNew";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Thakir.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Thakir";
 			};
 			name = Debug;
 		};
@@ -486,7 +486,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SebhaNew.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SebhaNew";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Thakir.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Thakir";
 			};
 			name = Release;
 		};
@@ -527,7 +527,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1443C8F32E5C8E8100F6AACE /* Build configuration list for PBXProject "SebhaNew" */ = {
+		1443C8F32E5C8E8100F6AACE /* Build configuration list for PBXProject "Thakir" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1443C9172E5C8E8200F6AACE /* Debug */,
@@ -536,7 +536,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1443C9192E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "SebhaNew" */ = {
+		1443C9192E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "Thakir" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1443C91A2E5C8E8200F6AACE /* Debug */,
@@ -545,7 +545,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1443C91C2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "SebhaNewTests" */ = {
+		1443C91C2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "ThakirTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1443C91D2E5C8E8200F6AACE /* Debug */,
@@ -554,7 +554,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1443C91F2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "SebhaNewUITests" */ = {
+		1443C91F2E5C8E8200F6AACE /* Build configuration list for PBXNativeTarget "ThakirUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1443C9202E5C8E8200F6AACE /* Debug */,

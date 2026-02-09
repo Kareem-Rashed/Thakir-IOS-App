@@ -1,65 +1,174 @@
-# Digital Sebha — Developer README
+# Thakir
 
-A compact, developer-focused README for the Digital Sebha SwiftUI app.
+A modern, voice-enabled iOS app for tracking dhikr (remembrance) with intelligent Arabic speech recognition.
 
-Purpose
+---
 
-- Lightweight dhikr (prayer beads) counter with voice recognition and per-sebha audio prompts.
+## 📱 Overview
 
-Key points
+**Thakir** is a lightweight digital sebha (prayer beads) counter built with SwiftUI. It combines traditional dhikr counting with modern features like voice recognition, custom audio prompts, and comprehensive statistics tracking.
 
-- MVVM SwiftUI app (iOS 15+ / Xcode 15+)
-- Arabic speech recognition with normalization (diacritics/Alifs/invisible chars) for robust matching
-- Per-sebha audio recordings persisted to the app Documents directory and referenced by filename
-- Daily counters, reorderable sebhas, reset daily/all-statistics capabilities
+### ✨ Key Features
 
-Quick start
+- 🎙️ **Arabic Voice Recognition** — Hands-free counting with intelligent speech matching
+- 🔊 **Custom Audio Prompts** — Record personalized audio for each dhikr
+- 📊 **Daily Statistics** — Track your progress with daily and all-time counters
+- 🎨 **Beautiful UI** — Modern SwiftUI interface with smooth animations
+- 🔄 **Reorderable Lists** — Organize your dhikr collection your way
+- 🌙 **Smart Normalization** — Robust Arabic text matching (handles diacritics, Alifs, invisible characters)
 
-1. Open in Xcode 15+: `open SebhaNew.xcodeproj`
-2. Build & run on a simulator or device (grant microphone permission for voice features)
+---
 
-Project layout (important files)
+## 🚀 Quick Start
 
-- `SebhaNewApp.swift` — App entry
-- `ContentView.swift` — Main tab container (uses `CustomTabBar`)
-- `ViewModels/SebhaViewModel.swift` — Core logic: selection, counters, persistence, voice handling
-- `Models/SebhaModels.swift` — Data models (Sebha, sessions, stats)
-- `Views/Home/HomeView.swift` — Minimal home UI (big counter circle, selector, voice toggle)
-- `Views/Sebhas/SebhasView.swift` — Sebha management + record/play UI
-- `Views/Profile/ProfileView.swift` — Reset controls and statistics
-- `Utils/Extensions.swift` — `normalizedArabic()` and other helpers
-- `Utils/Constants.swift` — UserDefaults keys and constants
+### Prerequisites
 
-Development notes
+- Xcode 15 or later
+- iOS 15+ device or simulator
+- Microphone permission (for voice features)
 
-- Recordings are saved by filename in UserDefaults and reconstructed at runtime from the Documents directory. Verify files exist after app updates or reinstalls.
-- Arabic normalization is central to reliable speech matching. See `String.normalizedArabic()` in `Utils/Extensions.swift`.
-- Reordering updates indices and persists the current selection to avoid mismatches between UI order and voice mappings.
-- Debug logs are present in the voice path; gate behind a DEBUG flag before production.
+### Installation
 
-Running tests
+1. **Clone the repository**
 
-- Unit tests: `xcodebuild test -scheme SebhaNew -destination 'platform=iOS Simulator,name=iPhone 15'`
-- UI tests use the same command with the UI test target
-  Screenshots
-  Screenshots
+   ```bash
+   git clone https://github.com/yourusername/thakir.git
+   cd Thakir
+   ```
 
-- **Sebhas list**
+2. **Open in Xcode**
 
-  <img src="SebhaNew/Screenshots/SSONE.png" width="300"/>
+   ```bash
+   open Thakir.xcodeproj
+   ```
 
-- **Home counter**
+3. **Build & Run**
+   - Select your target device or simulator
+   - Press `⌘R` to build and run
+   - Grant microphone permission when prompted
 
-  <img src="SebhaNew/Screenshots/SSTWO.png" width="300"/>
+---
 
-Contributing
+## 🎯 Key Features Explained
 
-- Fork, create a branch, and open a PR. Keep changes scoped and include tests where relevant.
+### Voice Recognition
 
-License
+The app uses advanced Arabic speech recognition with normalization to handle:
 
-- MIT — see `LICENSE`.
+- Diacritics (تَشْكِيل)
+- Different Alif forms (أ، إ، آ → ا)
+- Invisible Unicode characters
+- Natural speech variations
 
-Contact
+See `String.normalizedArabic()` in `Utils/Extensions.swift` for implementation details.
 
-- Author: Kareem Rashed — update links inside the repo as needed.
+### Audio Recordings
+
+- Per-dhikr audio prompts stored in app Documents directory
+- Filenames persisted in UserDefaults for efficient loading
+- Record, play, and delete functionality built-in
+
+### Statistics Tracking
+
+- Daily counters with automatic reset at midnight
+- All-time totals preserved
+- Per-dhikr and global statistics
+- Export capabilities for data analysis
+
+---
+
+## 🧪 Testing
+
+### Run Unit Tests
+
+```bash
+xcodebuild test -scheme Thakir -destination 'platform=iOS Simulator,name=iPhone 15'
+```
+
+### Run UI Tests
+
+```bash
+xcodebuild test -scheme Thakir -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:ThakirUITests
+```
+
+---
+
+## 📸 Screenshots
+
+<div align="center">
+  <img src="Thakir/Screenshots/SSONE.png" width="250" alt="Home"/>
+  <img src="Thakir/Screenshots/SSTWO.png" width="250" alt="Thikr Management"/>
+  <img src="Thakir/Screenshots/SSTHREE.png" width="250" alt="Adding New Thikr"/>
+</div>
+
+<p align="center">
+  <em>Dhikr List Management • Home Counter Interface • Profile & Statistics</em>
+</p>
+
+---
+
+## 🛠️ Development Notes
+
+### Audio File Management
+
+- Recordings saved by filename in UserDefaults
+- Files reconstructed at runtime from Documents directory
+- **Important:** Verify file existence after app updates or reinstalls
+
+### Arabic Text Normalization
+
+- Critical for reliable speech matching
+- Handles edge cases in Arabic orthography
+- Extensible for additional normalization rules
+
+### Reordering & Persistence
+
+- Reordering updates indices automatically
+- Current selection persisted to maintain consistency
+- Prevents mismatches between UI order and voice mappings
+
+### Debug Mode
+
+- Voice recognition includes debug logs
+- Gate behind `DEBUG` flag before production release
+- Use for troubleshooting speech matching issues
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. **Fork** the repository
+2. Create a **feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. Open a **Pull Request**
+
+### Code Guidelines
+
+- Keep changes scoped and focused
+- Include unit tests for new features
+- Follow existing code style and patterns
+- Update documentation as needed
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👤 Author
+
+**Kareem Rashed**
+
+- GitHub: [@Kareem-Rashed]
+- Email: kareemrashed@aucegypt.edu
+
+---
+
+## 🙏 Acknowledgments
+
+Built with ❤️ to help make dhikr practice easier and more accessible for everyone.
